@@ -40,12 +40,19 @@ function trapFocus(wrap: HTMLElement, active = true) {
 	const inCurrentTrap = (el: HTMLElement) => stack.at(-1)?.contains(el)
 
 	/** moves focus back to wrap if something outside the wrap is focused */
+	let recursionCount = 0; // state to prevent infinite recursion
 	const focusInListener = listen(document, 'focusin', (e: FocusEvent) => {
 		// return if ths trap is not active
 		// return if focus is inside the trap
 		if (!inCurrentTrap(wrap) || inCurrentTrap(e.target as HTMLElement)) {
 			return
 		}
+
+		if (recursionCount > 0) {
+			console.warn("trap-focus-svelte: focusin event listener called recursively")
+			return;
+		}
+		recursionCount += 1;
 
 		const [firstFocusable, lastFocusable] = getFirstAndLastFocusable()
 		const previousFocusable = e.relatedTarget as HTMLElement
@@ -59,16 +66,22 @@ function trapFocus(wrap: HTMLElement, active = true) {
 			previousFocusable === lastFocusable
 		) {
 			firstFocusable.focus()
+
+			recursionCount -= 1;
 			return
 		}
 
 		// if first element and shift tab within time, focus last element
 		if (previousFocusable === firstFocusable || previousFocusable === wrap) {
 			lastFocusable.focus()
+
+			recursionCount -= 1;
 			return
 		}
 		// fall back to focus on previousFocusable (we made sure it was in current trap above)
 		previousFocusable.focus()
+
+		recursionCount -= 1;
 	})
 
 	return {
